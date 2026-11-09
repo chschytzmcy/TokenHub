@@ -1,0 +1,40 @@
+name: Sync token diagnostics
+
+# Temporary diagnostic: verifies that SYNC_TOKEN can push branches and open
+# pull requests, and prints its granted scopes. Delete after verification.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect token scopes
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::SYNC_TOKEN is not set"
+            exit 1
+          fi
+          gh auth status 2>&1 | sed 's/token:.*/token: ***/'
+          echo "--- API identity ---"
+          gh api user --jq '.login' 2>&1 || echo "user endpoint unavailable (expected for fine-grained PATs)"
+          echo "--- repo permission probe ---"
+          gh api repos/chschytzmcy/TokenHub --jq '{permissions, private, default_branch}' 2>&1
+          echo "--- create/close a probe pull request ---"
+          git init -q probe && cd probe
+          git config user.email probe@example.invalid
+          git config user.name probe
+          git checkout -q -b chore/sync-token-probe
+          echo probe > probe.txt
+          git add probe.txt && git commit -q -m "chore: probe pull request"
+          git push -q "https://x-access-token:${GH_TOKEN}@github.com/chschytzmcy/TokenHub.git" chore/sync-token-probe
+          gh pr create --base custom/main --head chore/sync-token-probe \
+            --title "chore: sync token probe" --body "Temporary probe created by the sync token diagnostic workflow." 2>&1
+          sleep 5
+          gh pr close --delete-branch --comment "Closing the sync token probe." 2>&1 || true
