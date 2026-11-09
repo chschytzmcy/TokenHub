@@ -6,6 +6,9 @@ syncs (`merge`, never `rebase`) can resolve conflicts quickly and renumber
 local migration versions. Keep one row per logical change and update it in the
 same commit as the change itself.
 
+The full development and synchronization procedure lives in
+[docs/development/fork-workflow.md](docs/development/fork-workflow.md).
+
 ## Sync procedure
 
 1. Sync `main` from upstream (release tags preferred), then `git merge main`

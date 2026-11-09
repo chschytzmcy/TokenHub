@@ -84,6 +84,12 @@ TokenHub provides two optional AI-agent workflows:
 
 Use a workflow only when the user explicitly names it; otherwise follow the normal repository guidance. Read only the selected workflow before editing. If `fast-dev` no longer fits, ask before switching to `feature-dev`. Workflow selection never authorizes commits, pushes, pull requests, merges, or other external writes.
 
+## Fork development and upstream synchronization
+
+This checkout is a downstream fork of TokenHub. Read [docs/development/fork-workflow.md](docs/development/fork-workflow.md) before branching, and [CUSTOMIZATIONS.md](CUSTOMIZATIONS.md) for the ledger of local deviations.
+
+`main` is a fast-forward-only upstream mirror: never develop on it. All work lands on `custom/main` through pull requests. Upstream synchronization runs daily through `.github/workflows/sync-upstream.yml`, which opens a `chore: sync upstream <sha>` pull request and never merges on its own. Record every local deviation in `CUSTOMIZATIONS.md` in the same commit as the change it describes, and prefer upstreaming generic capabilities so the fork stops carrying them.
+
 ## Change guidelines
 
 - Keep changes focused and preserve unrelated work in the checkout.
