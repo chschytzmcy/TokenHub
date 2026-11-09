@@ -40,8 +40,12 @@ BACKEND_VAR_DEFAULTS=(
   "TOKENHUB_SEMANTIC_ROUTING_ENABLED=false"
   "TOKENHUB_SEMANTIC_ROUTING_PROJECTS="
   "TOKENHUB_TYPESAFE_API_KEY="
+  "TOKENHUB_TYPESAFE_BASE_URL="
   "TOKENHUB_TYPESAFE_MODEL=jev-1.13.0"
   "TOKENHUB_SEMANTIC_ROUTING_TIMEOUT_MS=1000"
+  "TOKENHUB_TEAM_QUOTA_REBALANCER_ENABLED=false"
+  "TOKENHUB_TEAM_QUOTA_REBALANCER_INTERVAL_SECONDS=900"
+  "TOKENHUB_TEAM_QUOTA_REBALANCER_WINDOW_DAYS=7"
   "TOKENHUB_CACHE_AFFINITY_ENABLED=false"
   "TOKENHUB_CACHE_AFFINITY_MODELS="
   "TOKENHUB_CACHE_AFFINITY_ALLOW_USER_SCOPE=false"
@@ -82,6 +86,16 @@ TOKENHUB_DATABASE_URL="${TOKENHUB_DATABASE_URL:-}"
 TOKENHUB_API_BASE_URL="${TOKENHUB_API_BASE_URL:-${NEXT_PUBLIC_API_BASE_URL:-$TOKENHUB_PUBLIC_BASE_URL}}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
+# The Next.js dev server refuses requests whose Origin is not in
+# allowedDevOrigins, so a browser on the LAN would load the page without
+# hydrating it and see a blank console. Allow this host's own address by
+# default; extra origins can be appended through the environment.
+if [ -z "${TOKENHUB_DEV_ALLOWED_ORIGINS:-}" ]; then
+  primary_address="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  if [ -n "${primary_address}" ]; then
+    TOKENHUB_DEV_ALLOWED_ORIGINS="$primary_address"
+  fi
+fi
 BACKEND_BIN="$ROOT_DIR/.tmp/tokenhub-backend"
 NEXT_BIN="$FRONTEND_DIR/node_modules/.bin/next"
 
@@ -203,6 +217,7 @@ log "Starting frontend: http://localhost:$FRONTEND_PORT"
   cd "$FRONTEND_DIR"
   exec env \
     TOKENHUB_API_BASE_URL="$TOKENHUB_API_BASE_URL" \
+    TOKENHUB_DEV_ALLOWED_ORIGINS="$TOKENHUB_DEV_ALLOWED_ORIGINS" \
     "$NEXT_BIN" dev --hostname "$FRONTEND_HOST" --port "$FRONTEND_PORT"
 ) &
 FRONTEND_PID=$!
