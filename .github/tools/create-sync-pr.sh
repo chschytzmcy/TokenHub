@@ -34,6 +34,16 @@ if [ -n "${COLLISIONS}" ]; then
   collision_compat="Schema migration collisions must be resolved as described above before merging."
 fi
 
+# Each note occupies its own list item: an empty note must not leave a stray
+# blank line, and a present note must not run into the next one.
+notes=""
+if [ -n "${conflicts_note}" ]; then
+  notes="${conflicts_note}"$'\n'
+fi
+if [ -n "${collision_note}" ]; then
+  notes="${notes}${collision_note}"
+fi
+
 body_file="${RUNNER_TEMP:-/tmp}/pr-body.md"
 cat > "${body_file}" <<SYNC_EOF
 ## Summary
@@ -47,8 +57,7 @@ N/A (automated upstream sync).
 ## Changes
 
 ${changes}
-${conflicts_note}${collision_note}
-
+${notes}
 Upstream commits in this sync:
 
 \`\`\`
