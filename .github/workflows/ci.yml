@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - main
+      # Fork addition: the downstream customization branch is this fork's
+      # default branch, so direct pushes to it must be validated too.
+      - custom/main
   merge_group:
 
 # Read-only by default, matching container-images.yml. No job here needs more, and
