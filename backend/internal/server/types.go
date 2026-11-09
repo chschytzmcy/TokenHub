@@ -1338,12 +1338,10 @@ type CallContext struct {
 	UserMinuteRequestHeld bool
 	UserTokenLimitBucket  string
 	UserQuotaLimits       QuotaLimits
-	// TeamQuotaID identifies the durable shared team pool bucket when the
-	// project's primary team configures a quota pool. Like UserQuotaID it is
-	// internal and never exposed to gateway clients.
-	TeamQuotaID                                                 string
-	TeamQuotaEnabled                                            bool
-	TeamQuotaLimits                                             QuotaLimits
+	// FORK: team quota pool state. It is nil unless the project's primary
+	// team configures a shared pool, so deployments without team pools keep
+	// the upstream behavior. The pool logic lives in store_team_pool.go.
+	TeamQuota                                                   *TeamQuotaAdmission
 	RedisBillingAdmitted, RedisKeyLeaseHeld, RedisUserLeaseHeld bool
 	// AttributedUserID is captured at admission so settlement remains attached
 	// to the owner who actually started the request, even if the key is transferred.

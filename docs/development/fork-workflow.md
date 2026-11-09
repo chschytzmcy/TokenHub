@@ -31,6 +31,19 @@ Rules that follow from this topology:
 
 2. Implement the change. Keep new behavior in new files where possible, and keep edits to upstream files minimal. Broad edits to shared files make the next upstream merge expensive.
 
+### Keeping customization code isolated
+
+New logic belongs in **new source files**. Existing upstream files — request admission, settlement, routing, and other main flows — receive only a thin wiring call into the new file, never inline logic.
+
+Concretely:
+
+- Put the implementation in a dedicated file named after the feature, for example `store_team_pool.go` or `team_quota_pool.go`. A customization that needs a store, a policy, and an HTTP surface can spread across several such files.
+- The call site in the upstream file should read as: resolve the customization state, make one call, merge the result back. Aim for a handful of lines, not a branch with logic in it.
+- Mark every wiring point with a `FORK:` comment block that states what the feature does, where its implementation lives, what the call returns, and what to check when an upstream merge touches that area. These blocks are the merge instructions: whoever resolves a conflict sees them at the conflict site.
+- Search for them before resolving a merge: `grep -rn "FORK:" backend/internal/server frontend/features`.
+
+Keep the upstream-side footprint small enough to measure. When adding a feature, report the split between "new files, zero merge conflict" and "wiring lines inside upstream files", because the second number is the recurring cost of every future sync.
+
 3. Validate locally before pushing. The narrowest checks first, then the full set:
 
    ```bash

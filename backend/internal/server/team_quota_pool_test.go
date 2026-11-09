@@ -52,8 +52,8 @@ func TestTeamQuotaPoolAdmissionAndSettlement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first admission under pool failed: %v", err)
 	}
-	if !call.TeamQuotaEnabled || call.TeamQuotaID != teamQuotaPoolBucketKey("team_pool") {
-		t.Fatalf("pool context missing: %+v", call)
+	if call.TeamQuota == nil || !call.TeamQuota.Enabled || call.TeamQuota.PoolID != teamQuotaPoolBucketKey("team_pool") {
+		t.Fatalf("pool context missing: %+v", call.TeamQuota)
 	}
 	store.FinishCall(call, RouteSelection{}, Usage{TotalTokens: 60}, http.StatusOK, "", "127.0.0.1", "pool-test")
 	day := teamPoolBucket(t, store, "team_pool", "day", periods.Day)
@@ -120,6 +120,34 @@ func TestTeamQuotaPoolShareCapsKeyBeforeStaticLimit(t *testing.T) {
 	// Within the share, admission succeeds.
 	if _, err := store.StartCall(context.Background(), project, key, "gpt-4.1-mini", 30); err != nil {
 		t.Fatalf("admission within the dynamic share failed: %v", err)
+	}
+}
+
+func TestTeamQuotaPoolShareScopeAttributesToTeam(t *testing.T) {
+	// The key has a generous static limit, but the dynamic share is stricter.
+	// The rejection must carry the team scope, because the share is the
+	// binding limit, not the key's own configuration.
+	store, project, key, _ := newTeamPoolGateway(t, "team_scope", map[string]any{
+		"pool_daily_tokens": 1000, "pool_allocation_mode": "dynamic",
+	}, APIKey{Limits: QuotaLimits{DailyTokens: 900}})
+	periods, err := currentQuotaPeriods(store.db, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.db.Create(&TeamQuotaAllocation{
+		ID: NewID("tqa"), TeamID: "team_scope", APIKeyID: key.ID,
+		PeriodType: "day", PeriodRef: periods.Day, AllocatedTokens: 30, CreatedAt: time.Now().UTC(),
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, err = store.StartCall(context.Background(), project, key, "gpt-4.1-mini", 50)
+	if err == nil {
+		t.Fatal("the stricter dynamic share must reject the call")
+	}
+	httpErr := AsHTTPError(err)
+	details, _ := httpErr.Details.(map[string]string)
+	if httpErr.Code != "quota_exceeded" || details["scope"] != "team" {
+		t.Fatalf("share rejection must carry the team scope, got %v %+v", err, httpErr.Details)
 	}
 }
 

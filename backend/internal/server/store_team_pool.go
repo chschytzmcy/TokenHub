@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -25,6 +26,125 @@ func teamQuotaAllocationMigration() dbschema.Migration {
 type teamQuotaDayUsage struct {
 	Tokens  float64
 	CostUSD float64
+}
+
+// TeamQuotaAdmission is the team quota pool state of one admitted call. It
+// travels from admission to settlement so the pool bucket can be settled in
+// the same transaction that recorded the request. It is nil when the call
+// does not draw from a team's shared pool.
+type TeamQuotaAdmission struct {
+	Enabled bool
+	Limits  QuotaLimits
+	PoolID  string
+}
+
+// admitTeamQuotaPool resolves the quota pool of the project's primary team,
+// applies the dynamic share to the effective limits, checks the shared pool
+// against its own reservation, and pre-charges that reservation.
+//
+// The whole pool decision lives in this file so the caller's transaction
+// carries one wiring call instead of pool logic. The returned limits already
+// include the dynamic share, and the limit scopes point at the team scope
+// whenever the share is the stricter limit.
+func (s *GormStore) admitTeamQuotaPool(tx *gorm.DB, project Project, key APIKey, limits QuotaLimits, scopes *MinuteLimitScopes, keyDay *QuotaCounter, keyMonth *QuotaCounter, tokenReservation int64, periods quotaPeriods) (QuotaLimits, *TeamQuotaAdmission, error) {
+	pool, err := teamQuotaPoolForProject(tx, project)
+	if err != nil {
+		return limits, nil, err
+	}
+	if !pool.Enabled() {
+		return limits, nil, nil
+	}
+	admission := &TeamQuotaAdmission{Enabled: true, Limits: pool.Limits, PoolID: teamQuotaPoolBucketKey(pool.TeamID)}
+
+	if pool.Dynamic {
+		shareLimits, err := s.teamQuotaAllocationLimits(tx, pool.TeamID, key.ID, periods)
+		if err != nil {
+			return limits, nil, err
+		}
+		// The share is compared against the pre-merge limits, the same way the
+		// quota policy pipeline attributes a scope: the scope names whichever
+		// limit is the stricter one.
+		if strictLimitChanged(limits.DailyTokens, shareLimits.DailyTokens) {
+			scopes.DailyTokens = teamQuotaPoolScope
+		}
+		if strictLimitChanged(limits.MonthlyTokens, shareLimits.MonthlyTokens) {
+			scopes.MonthlyTokens = teamQuotaPoolScope
+		}
+		if strictCostLimitChanged(limits.DailyCostUSD, shareLimits.DailyCostUSD) {
+			scopes.DailyCostUSD = teamQuotaPoolScope
+		}
+		if strictCostLimitChanged(limits.MonthlyCostUSD, shareLimits.MonthlyCostUSD) {
+			scopes.MonthlyCostUSD = teamQuotaPoolScope
+		}
+		limits = mergeQuotaLimits(limits, shareLimits)
+		// Dynamic shares are reservation-aware even though the static per-key
+		// day/month checks are settled-usage only: concurrent in-flight
+		// requests must not jointly overshoot one key's share of the pool.
+		if limit := exceededQuotaLimitWithReservation(shareLimits, keyDay, keyMonth, tokenReservation); limit != "" {
+			s.metrics.ObserveRateLimitHit(key.ID, limit, teamQuotaPoolScope)
+			return limits, admission, quotaExceededError(teamQuotaPoolScope)
+		}
+	}
+
+	poolID := admission.PoolID
+	if err := s.lockScopeForUpdate(tx, "team_quota", poolID); err != nil {
+		return limits, admission, err
+	}
+	dayCounter, err := s.quotaBucketForUpdate(tx, poolID, "day", periods.Day)
+	if err != nil {
+		return limits, admission, err
+	}
+	monthCounter, err := s.quotaBucketForUpdate(tx, poolID, "month", periods.Month)
+	if err != nil {
+		return limits, admission, err
+	}
+	if limit := exceededQuotaLimitWithReservation(pool.Limits, &dayCounter.QuotaCounter, &monthCounter.QuotaCounter, tokenReservation); limit != "" {
+		s.metrics.ObserveRateLimitHit(poolID, limit, teamQuotaPoolScope)
+		return limits, admission, quotaExceededError(teamQuotaPoolScope)
+	}
+	dayCounter.Requests++
+	monthCounter.Requests++
+	reservation := maxInt64(tokenReservation, 0)
+	dayCounter.TotalTokens = saturatingAddNonNegative(dayCounter.TotalTokens, reservation)
+	monthCounter.TotalTokens = saturatingAddNonNegative(monthCounter.TotalTokens, reservation)
+	if err := tx.Save(&dayCounter).Error; err != nil {
+		return limits, admission, err
+	}
+	if err := tx.Save(&monthCounter).Error; err != nil {
+		return limits, admission, err
+	}
+	return limits, admission, nil
+}
+
+// settleTeamQuotaPool refunds the pool reservation and records the settled
+// usage of one call in the shared team pool bucket.
+func (s *GormStore) settleTeamQuotaPool(tx *gorm.DB, call CallContext, usage Usage, periods quotaPeriods) error {
+	if call.TeamQuota == nil {
+		return nil
+	}
+	poolID := call.TeamQuota.PoolID
+	if err := s.lockScopeForUpdate(tx, "team_quota", poolID); err != nil {
+		return err
+	}
+	dayCounter, err := s.quotaBucketForUpdate(tx, poolID, "day", periods.Day)
+	if err != nil {
+		return err
+	}
+	monthCounter, err := s.quotaBucketForUpdate(tx, poolID, "month", periods.Month)
+	if err != nil {
+		return err
+	}
+	refundQuotaReservation(&dayCounter.QuotaCounter, call.ReservedTokens)
+	refundQuotaReservation(&monthCounter.QuotaCounter, call.ReservedTokens)
+	addUsage(&dayCounter.QuotaCounter, usage)
+	addUsage(&monthCounter.QuotaCounter, usage)
+	if err := tx.Save(&dayCounter).Error; err != nil {
+		return err
+	}
+	if err := tx.Save(&monthCounter).Error; err != nil {
+		return err
+	}
+	return raiseTeamQuotaAlerts(tx, strings.TrimPrefix(poolID, "team:"), &dayCounter.QuotaCounter, &monthCounter.QuotaCounter, call.TeamQuota.Limits)
 }
 
 // TeamQuotaPoolUsage reports the shared pool consumption for the current day

@@ -690,29 +690,24 @@ func (s *GormStore) finishCallTransaction(tx *gorm.DB, call CallContext, route R
 				return err
 			}
 		}
-		if call.TeamQuotaEnabled {
-			if err := s.lockScopeForUpdate(tx, "team_quota", call.TeamQuotaID); err != nil {
-				return err
-			}
-			teamDayCounter, err := s.quotaBucketForUpdate(tx, call.TeamQuotaID, "day", periods.Day)
-			if err != nil {
-				return err
-			}
-			teamMonthCounter, err := s.quotaBucketForUpdate(tx, call.TeamQuotaID, "month", periods.Month)
-			if err != nil {
-				return err
-			}
-			refundQuotaReservation(&teamDayCounter.QuotaCounter, call.ReservedTokens)
-			refundQuotaReservation(&teamMonthCounter.QuotaCounter, call.ReservedTokens)
-			addUsage(&teamDayCounter.QuotaCounter, quotaUsage)
-			addUsage(&teamMonthCounter.QuotaCounter, quotaUsage)
-			if err := tx.Save(&teamDayCounter).Error; err != nil {
-				return err
-			}
-			if err := tx.Save(&teamMonthCounter).Error; err != nil {
-				return err
-			}
-			if err := raiseTeamQuotaAlerts(tx, strings.TrimPrefix(call.TeamQuotaID, "team:"), &teamDayCounter.QuotaCounter, &teamMonthCounter.QuotaCounter, call.TeamQuotaLimits); err != nil {
+		// FORK: team quota pools — the only pool statement in this transaction.
+		//
+		// The shared team pool is a fork-local feature and all of its logic
+		// lives in store_team_pool.go (settleTeamQuotaPool). This call refunds
+		// the pool reservation that admission pre-charged and records the
+		// settled usage of this call, then raises the pool alerts. It runs in
+		// the same transaction as the request log and the usage record, so the
+		// pool total can never drift from the recorded usage.
+		//
+		// The pool bucket is keyed team:{teamID} and the reservation comes
+		// from call.ReservedTokens, which admission set when a pool applied.
+		// A call without a pool skips this branch entirely.
+		//
+		// Merging upstream changes here: keep this call, and re-check the
+		// argument list when the upstream signature of finishCallTransaction
+		// changes. The pool logic itself never belongs in this file.
+		if call.TeamQuota != nil {
+			if err := s.settleTeamQuotaPool(tx, call, quotaUsage, periods); err != nil {
 				return err
 			}
 		}
