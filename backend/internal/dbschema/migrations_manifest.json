@@ -85,6 +85,15 @@
       "checksum": "6e711e07bffa5bda9d04679c54e2d82fa72766b0d83bb0d364778f4a8af35fa4",
       "lock_timeout_seconds": 30,
       "statement_budget": 2
+    },
+    {
+      "version": 11,
+      "name": "add-team-quota-allocations",
+      "phase": "expand",
+      "dialect": "",
+      "checksum": "89134d022367c60511bcd627fabd74661d33f3f6150c3f4f2260be6db6816722",
+      "lock_timeout_seconds": 30,
+      "statement_budget": 10
     }
   ]
 }

@@ -623,6 +623,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 			return err
 		}
 	}
+	if s.teamQuotaRebalancer != nil {
+		if err := s.teamQuotaRebalancer.Shutdown(ctx); err != nil {
+			return err
+		}
+	}
 	if s.pluginBackgroundRunner != nil {
 		if err := s.pluginBackgroundRunner.Shutdown(ctx); err != nil {
 			return err

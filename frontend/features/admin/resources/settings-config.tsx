@@ -315,6 +315,17 @@ export function teamConfig(): ResourceConfig<AdminResource> {
       optionsFromData: costCenterSelectOptions,
       help: "费用归集口径，可与团队不同；用于成本归集和用量统计。",
     },
+    {
+      key: "pool_allocation_mode",
+      label: "额度池分配模式",
+      type: "select",
+      options: ["off", "dynamic"],
+      help: "开启动态后，后台按近期用量把组池份额自动分配给组内各 Key。",
+    },
+    { key: "pool_daily_tokens", label: "组池日 Token 上限", type: "number", help: "组内所有 Key 的日 Token 消耗总和不得超过该值；留空表示不启用。" },
+    { key: "pool_monthly_tokens", label: "组池月 Token 上限", type: "number" },
+    { key: "pool_daily_cost_usd", label: "组池日费用上限（USD）", type: "number" },
+    { key: "pool_monthly_cost_usd", label: "组池月费用上限（USD）", type: "number" },
   ];
   return {
     ...genericResourceConfig("teams", "团队分组", "企业团队、负责人和费用归属", fields),
@@ -322,6 +333,13 @@ export function teamConfig(): ResourceConfig<AdminResource> {
       { key: "name", label: "团队名称" },
       { key: "owner", label: "负责人", render: (item, ctx) => ownerUserLabel(ctx, stringifyValue(item.fields?.owner)) },
       { key: "cost_center", label: "成本中心", render: (item, ctx) => costCenterLabel(ctx, stringifyValue(item.fields?.cost_center)) },
+      {
+        key: "pool_usage",
+        label: "组池用量",
+        render: (item) => item.current_usage
+          ? `${formatQuotaUsage(tx("日：{requests} 次请求 · {tokens} Token · {cost}"), item.current_usage.daily)} / ${formatQuotaUsage(tx("月：{requests} 次请求 · {tokens} Token · {cost}"), item.current_usage.monthly)}`
+          : "-",
+      },
       { key: "members", label: "成员数", render: (item, ctx) => formatNumber(teamMemberCount(ctx, item)) },
       { key: "status", label: "状态", render: (item) => <StatusPill status={item.status} /> },
       { key: "updated_at", label: "更新时间", render: (item) => formatTime(item.updated_at ?? "") },

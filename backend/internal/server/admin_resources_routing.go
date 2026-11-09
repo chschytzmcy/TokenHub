@@ -64,6 +64,9 @@ func (s *Server) serveAdminResourceCollectionGet(w http.ResponseWriter, _ *http.
 	if kind == "quota-policies" {
 		items = s.attachQuotaPolicyUsage(items)
 	}
+	if kind == "teams" {
+		items = s.attachTeamPoolUsage(items)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": redactAdminResourcesForResponse(kind, items)})
 }
 
@@ -73,6 +76,26 @@ func (s *Server) attachQuotaPolicyUsage(items []AdminResource) []AdminResource {
 		scopeID := firstStringField(items[index].Fields, "scope_id")
 		usage, supported, err := s.store.GetQuotaPolicyUsage(scope, scopeID)
 		if err != nil || !supported {
+			continue
+		}
+		items[index].CurrentUsage = &usage
+	}
+	return items
+}
+
+// attachTeamPoolUsage attaches the shared pool consumption to every team that
+// configures a quota pool, mirroring the quota-policy usage attachment.
+func (s *Server) attachTeamPoolUsage(items []AdminResource) []AdminResource {
+	gormStore, ok := s.store.(*GormStore)
+	if !ok {
+		return items
+	}
+	for index := range items {
+		if !teamQuotaPoolFromFields(items[index].ID, items[index].Fields).Enabled() {
+			continue
+		}
+		usage, err := gormStore.TeamQuotaPoolUsage(items[index].ID)
+		if err != nil {
 			continue
 		}
 		items[index].CurrentUsage = &usage
@@ -95,6 +118,12 @@ func (s *Server) serveAdminResourceCollectionPost(w http.ResponseWriter, r *http
 		return
 	}
 	req.Fields = preserveAdminResourceSecrets(kind, nil, req.Fields)
+	if kind == "teams" {
+		if err := validateTeamQuotaPoolFields(req.Fields); err != nil {
+			writeError(w, r, err)
+			return
+		}
+	}
 	if kind == "settings" {
 		req.Fields = normalizeProviderProxySettingsFields(req.Fields)
 	}
@@ -170,6 +199,12 @@ func (s *Server) serveAdminResourcePatch(w http.ResponseWriter, r *http.Request,
 	}
 	if kind == "settings" {
 		req.Fields = normalizeProviderProxySettingsFields(req.Fields)
+	}
+	if kind == "teams" {
+		if err := validateTeamQuotaPoolFields(req.Fields); err != nil {
+			writeError(w, r, err)
+			return
+		}
 	}
 	if err := s.validateScopedResourceMutation(user, kind, resourceID, req); err != nil {
 		writeError(w, r, err)

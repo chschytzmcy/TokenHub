@@ -1,6 +1,8 @@
 package server
 
-import "time"
+import (
+	"time"
+)
 
 const pluginBackgroundJobSchedulerInterval = time.Minute
 
@@ -13,4 +15,11 @@ func (s *Server) StartBillingScheduler() {
 		s.providerMonitoring.StartScheduler(providerMonitoringSchedulerInterval)
 	}
 	s.pluginBackgroundRunner.StartScheduler(pluginBackgroundJobSchedulerInterval)
+	if s.config.TeamQuotaRebalancerEnabled {
+		if gormStore, ok := s.store.(*GormStore); ok {
+			interval := time.Duration(s.config.TeamQuotaRebalancerIntervalSeconds) * time.Second
+			s.teamQuotaRebalancer = NewTeamQuotaRebalancer(gormStore, interval, s.config.TeamQuotaRebalancerWindowDays)
+			s.teamQuotaRebalancer.StartScheduler(interval)
+		}
+	}
 }

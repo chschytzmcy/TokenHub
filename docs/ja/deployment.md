@@ -419,6 +419,9 @@ docker inspect --format 'memory={{.HostConfig.Memory}} memory_swap={{.HostConfig
 | `TOKENHUB_IN_FLIGHT_LEASE_TTL_SECONDS` | `300` | クラスター全体の同時実行リースの期限と更新間隔の基準 |
 | `TOKENHUB_CLUSTER_LOCK_TTL_SECONDS` | `180` | クラスター調整ロックの期限と更新間隔の基準 |
 | `TOKENHUB_BILLING_REDIS_URL` | 空 | 高同時実行の課金 admission 用の任意 Redis URL。設定すると、分単位 RPM/TPM 予約と API Key/ユーザー同時実行リースを Redis が処理し、データベースは永続的な課金台帳として残ります |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_ENABLED` | `false` | 最近の使用履歴に基づき、動的チームクォータプールのシェアをメンバーキーへ再配分します |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_INTERVAL_SECONDS` | `900` | 再配分の実行間隔（秒） |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_WINDOW_DAYS` | `7` | 需要推定に使う使用履歴の対象日数 |
 | `TOKENHUB_GRACEFUL_SHUTDOWN_SECONDS` | `150` | 停止時に処理中リクエストを待機する最大秒数 |
 | `TOKENHUB_STOP_GRACE_PERIOD` | `180s` | Docker がバックエンドを強制停止するまでの Compose 猶予時間 |
 | `TOKENHUB_CACHE_AFFINITY_ENABLED` | `false` | Chat Completions、Anthropic Messages、Responses で同一セッションを同一の上流アカウントに固定し、上流の prompt cache が継続的にヒットするようにします。ルーティング挙動を変えるため既定では無効 |

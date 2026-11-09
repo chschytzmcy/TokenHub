@@ -419,6 +419,9 @@ docker inspect --format 'memory={{.HostConfig.Memory}} memory_swap={{.HostConfig
 | `TOKENHUB_IN_FLIGHT_LEASE_TTL_SECONDS` | `300` | 集群并发租约的过期时间及续租周期基准 |
 | `TOKENHUB_CLUSTER_LOCK_TTL_SECONDS` | `180` | 集群协调锁的过期时间及续租周期基准 |
 | `TOKENHUB_BILLING_REDIS_URL` | 空 | 可选 Redis URL，用于高并发计费准入。设置后，Redis 处理每分钟 RPM/TPM 预留以及 API Key/用户并发租约；数据库仍是持久计费账本 |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_ENABLED` | `false` | 按近期用量历史在组内 key 之间重新调配动态团队额度池份额 |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_INTERVAL_SECONDS` | `900` | 两次重调配之间的间隔秒数 |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_WINDOW_DAYS` | `7` | 参与需求估算的用量历史窗口天数 |
 | `TOKENHUB_GRACEFUL_SHUTDOWN_SECONDS` | `150` | 停机时等待在途请求完成的最长秒数 |
 | `TOKENHUB_STOP_GRACE_PERIOD` | `180s` | Docker 强制停止后端前的 Compose 宽限时间 |
 | `TOKENHUB_CACHE_AFFINITY_ENABLED` | `false` | 对 Chat Completions、Anthropic Messages 和 Responses，将同一会话固定到同一个上游账号，使上游 prompt cache 持续命中。默认关闭，因为它会改变路由行为 |

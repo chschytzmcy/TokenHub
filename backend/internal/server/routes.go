@@ -86,6 +86,7 @@ func (s *Server) routes() {
 		methodRoute{Method: http.MethodDelete, Handler: s.handleAdminProjectTeamDelete},
 	)
 	s.registerSingleMethodRoute(http.MethodPost, "/api/admin/projects/{project_id}/quota-increase", s.handleAdminProjectQuotaIncreasePost, s.adminProjectMethodNotAllowed("approval", http.MethodPost))
+	s.registerSingleMethodRoute(http.MethodGet, "/api/admin/teams/{team_id}/quota-pool/allocations", s.serveAdminTeamPoolAllocations, s.adminTeamPoolAllocationsMethodNotAllowed(http.MethodGet))
 	s.mux.HandleFunc("/api/admin/projects/", s.handleAdminProjectNested)
 	s.registerAdminGuardrailPolicyRoutes()
 	s.registerMethodRoutes("/api/admin/users", func(allowedMethods string) http.HandlerFunc {

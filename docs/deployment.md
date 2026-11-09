@@ -419,6 +419,9 @@ Options: `--rebuild`, `--reset` to drop the local database, `--backend-port N`, 
 | `TOKENHUB_IN_FLIGHT_LEASE_TTL_SECONDS` | `300` | Expiry and renewal basis for cluster-wide concurrency leases |
 | `TOKENHUB_CLUSTER_LOCK_TTL_SECONDS` | `180` | Expiry and renewal basis for cluster coordination locks |
 | `TOKENHUB_BILLING_REDIS_URL` | empty | Optional Redis URL for high-concurrency billing admission. When set, Redis handles minute RPM/TPM reservations and API Key/user concurrency leases; the database remains the durable billing ledger |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_ENABLED` | `false` | Rebalance dynamic team quota pools across member keys from recent usage history |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_INTERVAL_SECONDS` | `900` | Seconds between rebalance runs |
+| `TOKENHUB_TEAM_QUOTA_REBALANCER_WINDOW_DAYS` | `7` | Usage history window feeding the demand estimate |
 | `TOKENHUB_GRACEFUL_SHUTDOWN_SECONDS` | `150` | Maximum time to drain in-flight requests during shutdown |
 | `TOKENHUB_STOP_GRACE_PERIOD` | `180s` | Compose grace period before Docker force-stops the backend |
 | `TOKENHUB_CACHE_AFFINITY_ENABLED` | `false` | For Chat Completions, Anthropic Messages, and Responses, pin a session to one upstream account so the provider's prompt cache keeps hitting. Off by default because it changes routing behaviour |

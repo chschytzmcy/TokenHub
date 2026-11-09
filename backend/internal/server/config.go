@@ -18,6 +18,11 @@ type Config struct {
 	TypeSafeBaseURL          string
 	TypeSafeModel            string
 	SemanticRoutingTimeoutMS int
+
+	TeamQuotaRebalancerEnabled         bool
+	TeamQuotaRebalancerIntervalSeconds int
+	TeamQuotaRebalancerWindowDays      int
+
 	Environment              string
 	AppVersion               string
 	BuildType                string
@@ -204,6 +209,10 @@ func ConfigFromEnv() Config {
 		ResponseMaxQueuedJobs:        getenvInt("TOKENHUB_RESPONSE_MAX_QUEUED_JOBS", 1000),
 		MaxJSONRequestBytes:          getenvBytes("TOKENHUB_MAX_JSON_REQUEST_BYTES", defaultMaxJSONRequestBytes),
 		MaxMultimodalRequestBytes:    getenvBytes("TOKENHUB_MAX_MULTIMODAL_REQUEST_BYTES", defaultMaxMultimodalRequestBytes),
+
+		TeamQuotaRebalancerEnabled:         getenvBool("TOKENHUB_TEAM_QUOTA_REBALANCER_ENABLED", false),
+		TeamQuotaRebalancerIntervalSeconds: getenvSetInt("TOKENHUB_TEAM_QUOTA_REBALANCER_INTERVAL_SECONDS", 900),
+		TeamQuotaRebalancerWindowDays:      getenvSetInt("TOKENHUB_TEAM_QUOTA_REBALANCER_WINDOW_DAYS", 7),
 	}
 }
 

@@ -48,6 +48,7 @@ type Server struct {
 	credentialRefresh                *ProviderCredentialRefreshService
 	payloadRetention                 *requestPayloadRetentionService
 	providerMonitoring               *providerMonitoringScheduler
+	teamQuotaRebalancer              *TeamQuotaRebalancer
 	mux                              *http.ServeMux
 	publicGatewayOperations          map[gatewayOperation]bool
 	config                           Config

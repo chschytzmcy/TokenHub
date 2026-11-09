@@ -1333,11 +1333,17 @@ type CallContext struct {
 	// UserQuotaID identifies the durable aggregate bucket when a user-scoped
 	// quota policy applies. It is intentionally internal and never exposed to
 	// gateway clients.
-	UserQuotaID                                                 string
-	UserQuotaEnabled                                            bool
-	UserMinuteRequestHeld                                       bool
-	UserTokenLimitBucket                                        string
-	UserQuotaLimits                                             QuotaLimits
+	UserQuotaID           string
+	UserQuotaEnabled      bool
+	UserMinuteRequestHeld bool
+	UserTokenLimitBucket  string
+	UserQuotaLimits       QuotaLimits
+	// TeamQuotaID identifies the durable shared team pool bucket when the
+	// project's primary team configures a quota pool. Like UserQuotaID it is
+	// internal and never exposed to gateway clients.
+	TeamQuotaID                                                 string
+	TeamQuotaEnabled                                            bool
+	TeamQuotaLimits                                             QuotaLimits
 	RedisBillingAdmitted, RedisKeyLeaseHeld, RedisUserLeaseHeld bool
 	// AttributedUserID is captured at admission so settlement remains attached
 	// to the owner who actually started the request, even if the key is transferred.

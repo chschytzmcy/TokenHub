@@ -690,6 +690,32 @@ func (s *GormStore) finishCallTransaction(tx *gorm.DB, call CallContext, route R
 				return err
 			}
 		}
+		if call.TeamQuotaEnabled {
+			if err := s.lockScopeForUpdate(tx, "team_quota", call.TeamQuotaID); err != nil {
+				return err
+			}
+			teamDayCounter, err := s.quotaBucketForUpdate(tx, call.TeamQuotaID, "day", periods.Day)
+			if err != nil {
+				return err
+			}
+			teamMonthCounter, err := s.quotaBucketForUpdate(tx, call.TeamQuotaID, "month", periods.Month)
+			if err != nil {
+				return err
+			}
+			refundQuotaReservation(&teamDayCounter.QuotaCounter, call.ReservedTokens)
+			refundQuotaReservation(&teamMonthCounter.QuotaCounter, call.ReservedTokens)
+			addUsage(&teamDayCounter.QuotaCounter, quotaUsage)
+			addUsage(&teamMonthCounter.QuotaCounter, quotaUsage)
+			if err := tx.Save(&teamDayCounter).Error; err != nil {
+				return err
+			}
+			if err := tx.Save(&teamMonthCounter).Error; err != nil {
+				return err
+			}
+			if err := raiseTeamQuotaAlerts(tx, strings.TrimPrefix(call.TeamQuotaID, "team:"), &teamDayCounter.QuotaCounter, &teamMonthCounter.QuotaCounter, call.TeamQuotaLimits); err != nil {
+				return err
+			}
+		}
 	}
 	if usage.TotalTokens > 0 || usage.CostUSD > 0 || usage.ProviderCostUSD > 0 || usage.RetrievalEvidence != nil || audioDurationEvidence(usage) != nil || usage.DocumentCount > 0 || hasTranscriptionTokenUsage(call, usage) {
 		if err := tx.Create(newUsageRecord(call, route, usage, now)).Error; err != nil {
