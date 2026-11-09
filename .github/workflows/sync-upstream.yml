@@ -1,0 +1,139 @@
+name: Sync upstream
+
+# Daily upstream synchronization for this downstream fork.
+#
+# Branch contract (see CUSTOMIZATIONS.md at the repository root):
+#   main        - pure upstream mirror, fast-forward only, never holds fork commits
+#   custom/main - downstream customization branch and the fork's default branch
+#
+# GitHub runs scheduled workflows only from the default branch, so this file
+# lives on custom/main and the fork's default branch must be set to
+# custom/main (Settings -> Branches). main is still updated here, by
+# fast-forward only: if it ever diverges, this workflow fails closed instead
+# of silently merging fork commits into the mirror.
+#
+# Optional setup for full CI on sync pull requests: PRs created with the
+# default GITHUB_TOKEN do not trigger other workflows. Store a fine-grained
+# PAT with contents:write and pull-requests:write on this repository as the
+# secret SYNC_TOKEN to make every sync PR run CI automatically. Without it,
+# a manual empty push on the sync branch triggers CI.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM_REPOSITORY: ${{ vars.UPSTREAM_REPOSITORY }}
+      GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+    steps:
+      - name: Check configuration
+        run: |
+          if [ -z "${UPSTREAM_REPOSITORY}" ]; then
+            echo "::error::Set the repository variable UPSTREAM_REPOSITORY to the upstream slug (for example astaxie/TokenHub)."
+            exit 1
+          fi
+
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || github.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name "tokenhub-sync-bot"
+          git config user.email "tokenhub-sync-bot@users.noreply.github.com"
+
+      - name: Fast-forward main from upstream
+        run: |
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch upstream main
+          git fetch origin main custom/main
+          git switch main
+          if [ "$(git rev-parse main)" = "$(git rev-parse upstream/main)" ]; then
+            echo "main already matches upstream/main"
+          else
+            git merge --ff-only upstream/main
+            git push origin main
+            echo "main fast-forwarded to $(git rev-parse --short upstream/main)"
+          fi
+
+      - name: Decide whether a sync PR is needed
+        id: decision
+        run: |
+          git switch custom/main
+          if git merge-base --is-ancestor main custom/main; then
+            echo "custom/main already contains upstream main; nothing to sync"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          open_prs=$(gh pr list --base custom/main --state open --search "chore: sync upstream in:title" --json number --jq length)
+          if [ "${open_prs}" != "0" ]; then
+            echo "An open sync PR already exists; finish it before starting a new sync"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Merge main into a sync branch
+        id: merge
+        if: steps.decision.outputs.needed == 'true'
+        run: |
+          branch="chore/sync-upstream-$(date +%Y%m%d)-$(git rev-parse --short main)"
+          git switch -c "$branch" custom/main
+          if git merge --no-edit main; then
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            git commit --allow-empty -m "chore: sync upstream marker (merge conflicts need manual resolution)"
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+          fi
+          git push origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Collect sync context
+        id: context
+        if: steps.decision.outputs.needed == 'true'
+        run: |
+          echo "upstream_sha=$(git rev-parse --short upstream/main)" >> "$GITHUB_OUTPUT"
+          echo "commit_count=$(git rev-list --count custom/main..main)" >> "$GITHUB_OUTPUT"
+          {
+            echo "COMMITS<<SYNC_EOF"
+            git log --oneline --no-decorate "custom/main..main"
+            echo "SYNC_EOF"
+          } >> "$GITHUB_ENV"
+
+          # Migration version collision check: local custom migrations occupy
+          # versions beyond the upstream merge base. If upstream claimed the
+          # same versions, local migrations must be renumbered while resolving
+          # this sync (see CUSTOMIZATIONS.md).
+          manifest="backend/internal/dbschema/migrations_manifest.json"
+          merge_base=$(git merge-base custom/main main)
+          baseline_versions=$(git show "${merge_base}:${manifest}" | jq -r '.migrations[].version' | sort)
+          local_versions=$(git show "custom/main:${manifest}" | jq -r '.migrations[].version' | sort)
+          upstream_versions=$(git show "main:${manifest}" | jq -r '.migrations[].version' | sort)
+          local_extra=$(comm -13 <(printf '%s\n' "${baseline_versions}") <(printf '%s\n' "${local_versions}"))
+          collisions=$(comm -12 <(printf '%s\n' "${local_extra}") <(printf '%s\n' "${upstream_versions}") | tr '\n' ' ' | sed 's/ $//')
+          echo "collisions=${collisions}" >> "$GITHUB_OUTPUT"
+
+      - name: Create sync pull request
+        if: steps.decision.outputs.needed == 'true'
+        env:
+          BRANCH: ${{ steps.merge.outputs.branch }}
+          CONFLICTS: ${{ steps.merge.outputs.conflicts }}
+          UPSTREAM_SHA: ${{ steps.context.outputs.upstream_sha }}
+          COMMIT_COUNT: ${{ steps.context.outputs.commit_count }}
+          COLLISIONS: ${{ steps.context.outputs.collisions }}
+        run: bash .github/tools/create-sync-pr.sh
