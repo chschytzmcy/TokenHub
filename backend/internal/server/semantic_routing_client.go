@@ -9,10 +9,12 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 )
 
 const jevRoutingEndpoint = "https://api.typesafe.ai/v1/systemone"
+const jevRoutingEndpointPath = "/v1/systemone"
 const semanticRoutingPromptVersion = "model-choice-v2"
 
 type semanticCandidate struct {
@@ -40,11 +42,24 @@ type semanticEvaluator interface {
 }
 
 type jevRoutingClient struct {
-	client  *http.Client
-	apiKey  string
-	model   string
-	timeout time.Duration
-	slots   chan struct{}
+	client   *http.Client
+	apiKey   string
+	model    string
+	endpoint string
+	timeout  time.Duration
+	slots    chan struct{}
+}
+
+// jevRoutingEndpointFor resolves the SystemOne endpoint. An empty
+// TOKENHUB_TYPESAFE_BASE_URL keeps the hosted TypeSafe default; a configured
+// base URL (for example a self-hosted evaluator on the LAN) keeps the standard
+// /v1/systemone path, optionally under a custom mount prefix.
+func jevRoutingEndpointFor(config Config) string {
+	base := strings.TrimRight(config.TypeSafeBaseURL, "/")
+	if base == "" {
+		return jevRoutingEndpoint
+	}
+	return base + jevRoutingEndpointPath
 }
 
 func newJevRoutingClient(config Config) *jevRoutingClient {
@@ -58,7 +73,8 @@ func newJevRoutingClient(config Config) *jevRoutingClient {
 	}
 	return &jevRoutingClient{
 		client: &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
-		apiKey: config.TypeSafeAPIKey, model: model, timeout: time.Duration(timeout) * time.Millisecond, slots: make(chan struct{}, 8),
+		apiKey: config.TypeSafeAPIKey, model: model, endpoint: jevRoutingEndpointFor(config),
+		timeout: time.Duration(timeout) * time.Millisecond, slots: make(chan struct{}, 8),
 	}
 }
 
@@ -90,7 +106,7 @@ func (c *jevRoutingClient) Evaluate(ctx context.Context, text string, candidates
 	if err != nil {
 		return semanticDecision{}, errors.New("invalid_request")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, jevRoutingEndpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return semanticDecision{}, errors.New("invalid_request")
 	}

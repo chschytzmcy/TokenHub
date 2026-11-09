@@ -85,6 +85,24 @@ func TestSemanticRoutingConfigAndSessionHeader(t *testing.T) {
 	if invalid.validateSemanticRouting() == nil {
 		t.Fatal("invalid timeout accepted")
 	}
+	invalid = config
+	invalid.TypeSafeBaseURL = "ftp://lan-gw.internal"
+	if invalid.validateSemanticRouting() == nil {
+		t.Fatal("non-http base URL accepted")
+	}
+	invalid = config
+	invalid.TypeSafeBaseURL = "http://lan-gw.internal/path?x=1"
+	if invalid.validateSemanticRouting() == nil {
+		t.Fatal("base URL with query accepted")
+	}
+	invalid = config
+	invalid.TypeSafeBaseURL = "not a url"
+	if invalid.validateSemanticRouting() == nil {
+		t.Fatal("relative base URL accepted")
+	}
+	if (Config{TypeSafeBaseURL: "http://lan-gw.internal:8787/jev"}).validateSemanticRouting() != nil {
+		t.Fatal("valid self-hosted base URL rejected")
+	}
 	t.Setenv("TOKENHUB_SEMANTIC_ROUTING_ENABLED", "true")
 	t.Setenv("TOKENHUB_SEMANTIC_ROUTING_PROJECTS", "prj_a,prj_b")
 	t.Setenv("TOKENHUB_TYPESAFE_API_KEY", "synthetic")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -18,6 +19,12 @@ type semanticModelReader interface {
 }
 
 func (c Config) validateSemanticRouting() error {
+	if c.TypeSafeBaseURL != "" {
+		parsed, err := url.Parse(c.TypeSafeBaseURL)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return fmt.Errorf("TOKENHUB_TYPESAFE_BASE_URL must be an absolute http(s) base URL without query or fragment")
+		}
+	}
 	if !c.SemanticRoutingEnabled {
 		return nil
 	}

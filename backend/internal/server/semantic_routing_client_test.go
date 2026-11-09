@@ -59,6 +59,46 @@ func TestJevRoutingClientWireContract(t *testing.T) {
 	}
 }
 
+func TestJevRoutingEndpointFor(t *testing.T) {
+	if got := jevRoutingEndpointFor(Config{}); got != jevRoutingEndpoint {
+		t.Fatalf("default endpoint changed: %s", got)
+	}
+	if got := jevRoutingEndpointFor(Config{TypeSafeBaseURL: "http://lan-gw.internal:8787"}); got != "http://lan-gw.internal:8787/v1/systemone" {
+		t.Fatalf("unexpected endpoint %s", got)
+	}
+	if got := jevRoutingEndpointFor(Config{TypeSafeBaseURL: "http://lan-gw.internal:8787/jev"}); got != "http://lan-gw.internal:8787/jev/v1/systemone" {
+		t.Fatalf("unexpected endpoint %s", got)
+	}
+	if got := jevRoutingEndpointFor(Config{TypeSafeBaseURL: "http://lan-gw.internal:8787/"}); got != "http://lan-gw.internal:8787/v1/systemone" {
+		t.Fatalf("unexpected endpoint %s", got)
+	}
+}
+
+func TestJevRoutingClientCustomBaseURLEndpoint(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" || r.URL.Path != "/v1/systemone" || r.Header.Get("Authorization") != "Bearer lan-secret" {
+			t.Errorf("incorrect request contract: %s %s", r.Method, r.URL.Path)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		if body["model"] != "jev-1.13.0" {
+			t.Errorf("unexpected model: %v", body["model"])
+		}
+		_ = json.NewEncoder(w).Encode(semanticTestResponse())
+	}))
+	defer upstream.Close()
+	client := newJevRoutingClient(Config{TypeSafeAPIKey: "lan-secret", TypeSafeBaseURL: upstream.URL + "/"})
+	if client.endpoint != upstream.URL+"/v1/systemone" {
+		t.Fatalf("unexpected endpoint %s", client.endpoint)
+	}
+	decision, err := client.Evaluate(context.Background(), "Write a synthetic test", semanticTestCandidates(), "")
+	if err != nil || decision.Choice != "candidate_2" || decision.InputTokens != 23 {
+		t.Fatalf("unexpected decision: %+v %v", decision, err)
+	}
+}
+
 func TestJevRoutingClientRejectsInvalidResponses(t *testing.T) {
 	for _, test := range []struct {
 		name   string

@@ -15,6 +15,7 @@ type Config struct {
 	SemanticRoutingEnabled   bool
 	SemanticRoutingProjects  []string
 	TypeSafeAPIKey           string
+	TypeSafeBaseURL          string
 	TypeSafeModel            string
 	SemanticRoutingTimeoutMS int
 	Environment              string
@@ -136,6 +137,7 @@ func ConfigFromEnv() Config {
 		SemanticRoutingEnabled:           getenvBool("TOKENHUB_SEMANTIC_ROUTING_ENABLED", false),
 		SemanticRoutingProjects:          getenvList("TOKENHUB_SEMANTIC_ROUTING_PROJECTS"),
 		TypeSafeAPIKey:                   getenv("TOKENHUB_TYPESAFE_API_KEY", ""),
+		TypeSafeBaseURL:                  strings.TrimSpace(getenv("TOKENHUB_TYPESAFE_BASE_URL", "")),
 		TypeSafeModel:                    getenv("TOKENHUB_TYPESAFE_MODEL", "jev-1.13.0"),
 		SemanticRoutingTimeoutMS:         getenvSetInt("TOKENHUB_SEMANTIC_ROUTING_TIMEOUT_MS", 1000),
 		Environment:                      getenv("TOKENHUB_ENV", "dev"),

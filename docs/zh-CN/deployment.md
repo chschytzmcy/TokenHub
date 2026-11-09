@@ -553,5 +553,6 @@ Kronk 默认监听明文 HTTP。远程部署时应使用可信私网或 TLS 反�
 | `TOKENHUB_SEMANTIC_ROUTING_ENABLED` | `false` | 开启独立的 Jev 决策客户端。 |
 | `TOKENHUB_SEMANTIC_ROUTING_PROJECTS` | 空 | 允许外发用户文本的精确项目 ID，以逗号分隔；空名单全部拒绝。 |
 | `TOKENHUB_TYPESAFE_API_KEY` | 空 | 仅供服务端使用的 TypeSafe 凭据。 |
+| `TOKENHUB_TYPESAFE_BASE_URL` | 空 | 可选的自托管 SystemOne 评估器基础 URL，网关会在其后拼接 `/v1/systemone`。 |
 | `TOKENHUB_TYPESAFE_MODEL` | `jev-1.13.0` | 明确的评估模型版本。 |
 | `TOKENHUB_SEMANTIC_ROUTING_TIMEOUT_MS` | `1000` | 目录查询与评估超时，范围为 1–10000 ms。 |

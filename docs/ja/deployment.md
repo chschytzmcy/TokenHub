@@ -553,5 +553,6 @@ Liveness には `/livez`、Readiness には `/readyz` を使用します。デ�
 | `TOKENHUB_SEMANTIC_ROUTING_ENABLED` | `false` | 独立した Jev 判断クライアントを有効化。 |
 | `TOKENHUB_SEMANTIC_ROUTING_PROJECTS` | 空 | テキスト送信を許可する正確なプロジェクト ID のカンマ区切り。空ならすべて拒否。 |
 | `TOKENHUB_TYPESAFE_API_KEY` | 空 | サーバー専用の TypeSafe 認証情報。 |
+| `TOKENHUB_TYPESAFE_BASE_URL` | 空 | 任意のセルフホスト SystemOne 評価器ベース URL。`/v1/systemone` を末尾に付加します。 |
 | `TOKENHUB_TYPESAFE_MODEL` | `jev-1.13.0` | 具体的な評価モデルのバージョン。 |
 | `TOKENHUB_SEMANTIC_ROUTING_TIMEOUT_MS` | `1000` | カタログ検索と評価のタイムアウト、1〜10000 ms。 |

@@ -556,5 +556,6 @@ See [Jev semantic routing](semantic-routing.md) for rollout, request eligibility
 | `TOKENHUB_SEMANTIC_ROUTING_ENABLED` | `false` | Enable the independent Jev decision client. |
 | `TOKENHUB_SEMANTIC_ROUTING_PROJECTS` | empty | Exact project IDs allowed to send user text, comma-separated; empty denies all. |
 | `TOKENHUB_TYPESAFE_API_KEY` | empty | Server-only TypeSafe credential. |
+| `TOKENHUB_TYPESAFE_BASE_URL` | empty | Optional self-hosted SystemOne evaluator base URL; `/v1/systemone` is appended to it. |
 | `TOKENHUB_TYPESAFE_MODEL` | `jev-1.13.0` | Concrete evaluator model version. |
 | `TOKENHUB_SEMANTIC_ROUTING_TIMEOUT_MS` | `1000` | Catalog lookup and evaluation timeout, 1–10000 ms. |
