@@ -15,7 +15,7 @@ name: Sync upstream
 # Optional setup for full CI on sync pull requests: PRs created with the
 # default GITHUB_TOKEN do not trigger other workflows. Store a fine-grained
 # PAT with contents:write and pull-requests:write on this repository as the
-# secret SYNC_TOKEN to make every sync PR run CI automatically. Without it,
+# secret SYNC_TOKEN1 to make every sync PR run CI automatically. Without it,
 # a manual empty push on the sync branch triggers CI.
 
 on:
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       UPSTREAM_REPOSITORY: ${{ vars.UPSTREAM_REPOSITORY }}
-      GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+      GH_TOKEN: ${{ secrets.SYNC_TOKEN1 || github.token }}
     steps:
       - name: Check configuration
         run: |
@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.SYNC_TOKEN || github.token }}
+          token: ${{ secrets.SYNC_TOKEN1 || github.token }}
 
       - name: Configure git
         run: |
